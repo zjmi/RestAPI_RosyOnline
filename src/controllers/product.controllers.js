@@ -493,3 +493,87 @@ export async function resetDescuento30xCiento3Meses(req, res) {
     console.log(error);
   }
 }
+
+//Metodo Temporal para copiar los elementos que tienen descuento a una nueva categoria "Descuentos"
+
+export async function moveItemsDescuento(req, res) {
+  try {
+    let contador = 1;
+    let itemCreateCategoryDescuento = 0;
+    const itemsDescuentoQuery =
+      `SELECT A.ID, A.post_author, A.post_date, A.post_date_gmt, A.post_content, A.post_title, A.post_excerpt, A.post_status, A.comment_status, A.ping_status, A.post_password, A.post_name, A.to_ping, A.pinged, A.post_modified, A.post_modified_gmt, A.post_content_filtered, A.post_parent, A.guid, A.menu_order, A.post_type, A.post_mime_type, A.comment_count, B.meta_key, B.meta_value ` +
+      `FROM wp_j8dwsram9m_posts A ` +
+      `INNER JOIN wp_j8dwsram9m_postmeta B ON A.ID = B.post_id ` +
+      `WHERE A.post_type =  "product" ` +
+      `AND A.post_status =  "publish" ` +
+      `AND B.meta_key =  '_price' ` +
+      `AND A.post_content LIKE  '%DESCUENTO%'`;
+    const itemsDescuento = await sequelize.query(itemsDescuentoQuery, {
+      plain: false,
+      raw: false,
+      type: Sequelize.QueryTypes.SELECT,
+    });
+    if (itemsDescuento.length > 0) {
+      itemsDescuento.map(async (item) => {
+        const searchItemCategoryDescuento =
+          `SELECT object_id, term_taxonomy_id, term_order ` +
+          `FROM wp_j8dwsram9m_term_relationships ` +
+          `WHERE object_id = ${item.ID} AND term_taxonomy_id = 1521`;
+        const itemCategoryDescuentoExist = await sequelize.query(
+          searchItemCategoryDescuento,
+          {
+            plain: false,
+            raw: false,
+            type: Sequelize.QueryTypes.SELECT,
+          }
+        );
+        if (itemCategoryDescuentoExist.length > 0) {
+          console.log(
+            `Ya existe la categoria "Descuentos" en el registro con ID ${item.ID}`
+          );
+        } else {
+          const insertCategoryDescuentoQuery =
+            `INSERT INTO wp_j8dwsram9m_term_relationships ( ` +
+            `object_id, ` +
+            `term_taxonomy_id, ` +
+            `term_order ` +
+            `) ` +
+            `VALUES ( ` +
+            `${item.ID}, 1521, 0 ` +
+            `)`;
+          const categoryDescuento = await sequelize.query(
+            insertCategoryDescuentoQuery,
+            {
+              plain: false,
+              raw: false,
+              type: Sequelize.QueryTypes.INSERT,
+            }
+          );
+          if (categoryDescuento) {
+            console.log(
+              `Se inserto la categoria "Descuentos" en el registro con ID ${item.ID}`
+            );
+            itemCreateCategoryDescuento = itemCreateCategoryDescuento + 1;
+          } else {
+            console.log(
+              `Error: No se pudo insertar la categoria "Descuentos" en el registro con ID ${item.ID}`
+            );
+          }
+        }
+        if (contador === itemsDescuento.length) {
+          console.log("FIN DE LA EJECUCIÓN");
+          console.log(
+            `Se creo la categoria "Descuentos" en ${itemCreateCategoryDescuento} registros`
+          );
+        } else {
+          contador = contador + 1;
+        }
+      });
+      res.json("Se esta corriendo en segundo plano");
+    } else {
+      res.json("No existen productos con descuento");
+    }
+  } catch (error) {
+    console.log(error);
+  }
+}
