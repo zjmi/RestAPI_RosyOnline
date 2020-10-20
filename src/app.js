@@ -3,6 +3,7 @@ import morgan from 'morgan';
 
 // importing routes
 import productRoute from './routes/product';
+import inventarioRoute from './routes/inventario';
 
 // initialization
 const app = express();
@@ -13,5 +14,6 @@ app.use(json());
 
 // routes
 app.use('/api/product', productRoute);
+app.use('/api/inventario', inventarioRoute);
 
 export default app;
