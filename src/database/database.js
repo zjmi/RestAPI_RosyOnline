@@ -8,7 +8,7 @@ export const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USERN
     pool: {
       max: 5,
       min:0,
-      idle: 500000,
-      acquire: 500000
+      idle: 800000,
+      acquire: 800000
     }
   });
