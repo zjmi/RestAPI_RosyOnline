@@ -1162,6 +1162,220 @@ export async function assignCategory(req, res) {
   }
 }
 
+//Metodo que elimina los descuentos de los items por categoria
+export async function removeDiscountByCategoria(req, res) {
+  try {
+    const { categoria } = req.params;
+    let contador = 1;
+    let setDiscount = 0;
+    let setDescription = 0;
+    let setPrice = 0;
+    let deleteCategoriaDescuento = 0;
+    let deleteCategoria30Descuento = 0;
+    let deleteCategoria50Descuento = 0;
+    const productosQuery =
+      `SELECT A.ID, A.post_date, A.post_date_gmt, A.post_content, A.post_title, A.post_excerpt, A.post_status, A.post_name, A.post_modified, A.post_modified_gmt, A.guid, A.post_type, B.meta_key, B.meta_value, C.term_taxonomy_id, C.term_order ` +
+      `FROM wp_j8dwsram9m_posts A ` +
+      `INNER JOIN wp_j8dwsram9m_postmeta B ON A.ID = B.post_id ` +
+      `INNER JOIN wp_j8dwsram9m_term_relationships C ON A.ID = C.object_id ` +
+      `WHERE A.post_type = "product" ` +
+      `AND A.post_status = "publish" ` +
+      `AND B.meta_key = '_discount' ` +
+      `AND C.term_taxonomy_id = ${categoria}`;
+    const productos = await sequelize.query(productosQuery, {
+      plain: false,
+      raw: false,
+      type: Sequelize.QueryTypes.SELECT,
+    });
+    if (productos.length > 0) {
+      res.json("Se esta ejecutando en segundo plano");
+      productos.map(async (item) => {
+        if (item.meta_value === "30" || item.meta_value === "50") {
+          const newDiscountProductQuery =
+            `UPDATE wp_j8dwsram9m_postmeta ` +
+            `SET meta_value = '0' ` +
+            `WHERE post_id = ${item.ID} AND meta_key = '_discount'`;
+          const newDiscountProduct = await sequelize.query(
+            newDiscountProductQuery,
+            {
+              plain: false,
+              raw: false,
+              type: Sequelize.QueryTypes.UPDATE,
+            }
+          );
+          if (newDiscountProduct) {
+            console.log(`Se modifico el _discount del item con ID ${item.ID}`);
+            setDiscount = setDiscount + 1;
+          } else {
+            console.log(
+              `Error: No se modifico el _discount del item con ID ${item.ID}`
+            );
+          }
+          //Bloque que busca la _original_description de cada item
+          const getOriginalDescriptionQuery =
+            `SELECT meta_id, post_id, meta_key, meta_value ` +
+            `FROM  wp_j8dwsram9m_postmeta ` +
+            `WHERE  meta_key = "_original_description" AND post_id = ${item.ID}`;
+          const getOriginalDescription = await sequelize.query(
+            getOriginalDescriptionQuery,
+            {
+              plain: false,
+              raw: false,
+              type: Sequelize.QueryTypes.SELECT,
+            }
+          );
+          const originalDescriptionItem = getOriginalDescription[0].meta_value;
+          //Bloque que busca la _original_price de cada item
+          const getOriginalPriceQuery =
+            `SELECT meta_id, post_id, meta_key, meta_value ` +
+            `FROM  wp_j8dwsram9m_postmeta ` +
+            `WHERE  meta_key = "_original_price" AND post_id = ${item.ID}`;
+          const getOriginalPrice = await sequelize.query(
+            getOriginalPriceQuery,
+            {
+              plain: false,
+              raw: false,
+              type: Sequelize.QueryTypes.SELECT,
+            }
+          );
+          const originalPriceItem = getOriginalPrice[0].meta_value;
+          //Actualiza la description del item
+          const updateDescriptionProductoQuery =
+            `UPDATE wp_j8dwsram9m_posts SET post_content = "${originalDescriptionItem}", ` +
+            `post_excerpt = "${originalDescriptionItem}" ` +
+            `WHERE ID = ${item.ID}`;
+          const newDescriptionProduct = await sequelize.query(
+            updateDescriptionProductoQuery,
+            {
+              plain: false,
+              raw: false,
+              type: Sequelize.QueryTypes.UPDATE,
+            }
+          );
+          if (newDescriptionProduct) {
+            console.log(
+              `Se modifico la descripcion del item con ID ${item.ID}`
+            );
+            setDescription = setDescription + 1;
+          } else {
+            console.log(
+              `Error: No se modifico la descripcion del item con ID ${item.ID}`
+            );
+          }
+          //Actualiza el price del item
+          const updatePriceQuery =
+            `UPDATE wp_j8dwsram9m_postmeta ` +
+            `SET meta_value = '${originalPriceItem}' ` +
+            `WHERE post_id = ${item.ID} AND meta_key = '_price'`;
+          const updatePrice = await sequelize.query(updatePriceQuery, {
+            plain: false,
+            raw: false,
+            type: Sequelize.QueryTypes.UPDATE,
+          });
+          if (updatePrice) {
+            console.log(`Se modifico el precio del item con ID ${item.ID}`);
+            setPrice = setPrice + 1;
+          } else {
+            console.log(
+              `Error: No se modifico el precio del item con ID ${item.ID}`
+            );
+          }
+          //Se borra la categoria Descuentos
+          const deleteCategoriaDescuentosQuery =
+            `DELETE FROM wp_j8dwsram9m_term_relationships ` +
+            `WHERE object_id = ${item.ID} AND term_taxonomy_id = 1521`;
+          const deleteCategoriaDescuentos = sequelize.query(
+            deleteCategoriaDescuentosQuery,
+            {
+              plain: false,
+              raw: false,
+              type: Sequelize.QueryTypes.DELETE,
+            }
+          );
+          if (deleteCategoriaDescuentos) {
+            console.log(
+              `Se elimino la categoria Descuentos del item con ID ${item.ID}`
+            );
+            deleteCategoriaDescuento = deleteCategoriaDescuento + 1;
+          } else {
+            console.log(
+              `Error: No se elimino la categoria Descuentos del item con ID ${item.ID}`
+            );
+          }
+          //Se borra la categoria del 30% 0 50% de Descuento
+          if (item.meta_value === "30") {
+            const deleteCategoria30DescuentosQuery =
+              `DELETE FROM wp_j8dwsram9m_term_relationships ` +
+              `WHERE object_id = ${item.ID} AND term_taxonomy_id = 1553`;
+            const deleteCategoria30Descuentos = sequelize.query(
+              deleteCategoria30DescuentosQuery,
+              {
+                plain: false,
+                raw: false,
+                type: Sequelize.QueryTypes.DELETE,
+              }
+            );
+            if (deleteCategoria30Descuentos) {
+              console.log(
+                `Se elimino la categoria 30% de Descuento del item con ID ${item.ID}`
+              );
+              deleteCategoria30Descuento = deleteCategoria30Descuento + 1;
+            } else {
+              console.log(
+                `Error: No se elimino la categoria 30% de Descuento del item con ID ${item.ID}`
+              );
+            }
+          }
+          if (item.meta_value === "50") {
+            const deleteCategoria50DescuentosQuery =
+              `DELETE FROM wp_j8dwsram9m_term_relationships ` +
+              `WHERE object_id = ${item.ID} AND term_taxonomy_id = 1554`;
+            const deleteCategoria50Descuentos = sequelize.query(
+              deleteCategoria50DescuentosQuery,
+              {
+                plain: false,
+                raw: false,
+                type: Sequelize.QueryTypes.DELETE,
+              }
+            );
+            if (deleteCategoria50Descuentos) {
+              console.log(
+                `Se elimino la categoria 50% de Descuento del item con ID ${item.ID}`
+              );
+              deleteCategoria50Descuento = deleteCategoria50Descuento + 1;
+            } else {
+              console.log(
+                `Error: No se elimino la categoria 50% de Descuento del item con ID ${item.ID}`
+              );
+            }
+          }
+        }
+        if (contador === productos.length) {
+          console.log("FIN DE LA EJECUCIÓN");
+          console.log(`Se cambio el precio a ${setPrice} registros`);
+          console.log(`Se cambio la descripción a ${setDescription} registros`);
+          console.log(`Se el discount a ${setDiscount} registros`);
+          console.log(
+            `Se elimino la categoria descuentos a ${deleteCategoriaDescuento} registros`
+          );
+          console.log(
+            `Se elimino la categoria 30% de descuento a ${deleteCategoria30Descuento} registros`
+          );
+          console.log(
+            `Se elimino la categoria 50% de descuento a ${deleteCategoria50Descuento} registros`
+          );
+        } else {
+          contador = contador + 1;
+        }
+      });
+    } else {
+      res.json("No existen productos");
+    }
+  } catch (error) {
+    res.json(error.message);
+  }
+}
+
 //Metodo de Politicas de Descuento
 export async function politicasDescuento(req, res) {
   try {
